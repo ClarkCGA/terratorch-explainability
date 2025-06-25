@@ -199,7 +199,9 @@ class TemporalWrapper(nn.Module):
                     features_per_map[i] = torch.stack(features_per_map[i], dim=2)  # Shape: [B, C', T, H', W']
                 except RuntimeError as e:
                     raise
-
+           
+            if self.pooling_type == "keep":
+                return features_per_map
             # Apply pooling or concatenation
             if self.concat:
                 features_per_map_agg = [feat.reshape(batch_size, -1, feat.shape[-2], feat.shape[-1]) if len(feat.shape) == 5 else feat.reshape(batch_size, feat.shape[-3], -1) for feat in features_per_map]
