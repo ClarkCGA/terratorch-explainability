@@ -136,7 +136,7 @@ class TemporalWrapper(nn.Module):
                     stacked_dict = {k: torch.stack([d[k] for d in seq], dim=1) for k in keys}
                     features_per_map[i] = stacked_dict
                 else:
-                    features_per_map[i] = torch.stack(seq, dim=2)
+                    features_per_map[i] = torch.stack(seq, dim=1)
             if self.pooling_type == "keep":
                 return features_per_map
             # Apply pooling or concatenation
@@ -196,6 +196,7 @@ class TemporalWrapper(nn.Module):
             # Stack features along the temporal dimension
             for i in range(num_feature_maps):
                 try:
+                    if features_per_map[i].dim() == 4: features_per_map[i] = features_per_map[i].unsqueeze(1)  # add channel dim for embeddings\
                     features_per_map[i] = torch.stack(features_per_map[i], dim=2)  # Shape: [B, C', T, H', W']
                 except RuntimeError as e:
                     raise
