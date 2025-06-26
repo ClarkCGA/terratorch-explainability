@@ -1,9 +1,12 @@
 import os
 import torch
 import rasterio
+import logging
 from torchgeo.trainers import BaseTask
 from terratorch.registry import BACKBONE_REGISTRY
 from terratorch.models.utils import TemporalWrapper
+
+logger = logging.getLogger("terratorch")
 
 class EmbeddingGeneration(BaseTask):
     """
@@ -52,7 +55,6 @@ class EmbeddingGeneration(BaseTask):
     def predict_step(self, batch: dict, batch_idx: int, dataloader_idx: int = 0):
         x = batch["image"]
         file_names = x['file_id']
-        print(len(file_names), len(file_names[1]))
         x.pop("file_id", None)    
         batch_id = batch["filename"] 
         
@@ -69,7 +71,6 @@ class EmbeddingGeneration(BaseTask):
                 for t in range(T):
                     arr = emb[i, t].numpy()
                     fname = file_names[i][t]
-                    print(fname)
                     out_tiff = os.path.join(out_dir, f"{fname}.tif")
                     os.makedirs(os.path.dirname(out_tiff), exist_ok=True)
                     with rasterio.open(
@@ -82,7 +83,7 @@ class EmbeddingGeneration(BaseTask):
                         dtype=arr.dtype,
                     ) as dst:
                         dst.write(arr, 1)
-                    print(f"Saved {out_tiff}")
+        
 
         # Handle dict embedding (multimodal data)
         elif isinstance(emb, dict):
@@ -108,7 +109,6 @@ class EmbeddingGeneration(BaseTask):
                             dtype=arr.dtype,
                         ) as dst:
                             dst.write(arr, 1)
-                        print(f"Saved {out_tiff}")
-
+            print(f"Saved {out_tiff}")
         else:
             raise ValueError("Embedding must be a torch.Tensor or dict of tensors.")
