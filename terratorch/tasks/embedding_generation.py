@@ -45,7 +45,10 @@ class EmbeddingGeneration(BaseTask):
                 n_timestamps=self.hparams.n_timestamps
             )
         self.model.eval()
+        # for k, v in self.model.named_parameters():
+        #     print(k, v.shape)
         os.makedirs(self.hparams.output_dir, exist_ok=True)
+    
 
     def training_step(self, *args, **kwargs): pass
     def validation_step(self, *args, **kwargs): pass
@@ -53,24 +56,41 @@ class EmbeddingGeneration(BaseTask):
     def on_validation_epoch_end(self): pass
 
     def predict_step(self, batch: dict, batch_idx: int, dataloader_idx: int = 0):
+        print (batch.keys())
         x = batch["image"]
-        file_names = x['file_id']
-        x.pop("file_id", None)    
-        batch_id = batch["filename"] 
+        filename = batch["filename"]
+        print(type(filename))
         
-        emb = self.model.get_embedding(x)
+        if self.hparams.use_temporal:
+            emb = self.model.get_embedding(x)
+        else:
+            emb = self.model.forward(x)[-1]
+
+        print(x.shape)
+        print(emb.shape)
 
         # Handle torch.Tensor embedding
         if isinstance(emb, torch.Tensor):
             emb = emb.detach().cpu()
-            B, T, H, W = emb.shape
+            if len(emb.shape) == 4:
+                B, T, H, W = emb.shape
+            else:
+                B, H, W = emb.shape
+                T = 1
             out_dir = os.path.join(self.hparams.output_dir, 'embeddings')
             os.makedirs(out_dir, exist_ok=True)
 
             for i in range(B):
+                emb_fname = os.path.join(out_dir, f"{filename[i]}_emb.pt")
+                cls_fname = os.path.join(out_dir, f"{filename[i]}_cls.pt")
+                torch.save(emb[i,1:,:],emb_fname)
+                torch.save(emb[i,:1,:],cls_fname)
+            return
+
+            for i in range(B):
                 for t in range(T):
                     arr = emb[i, t].numpy()
-                    fname = file_names[i][t]
+                    fname = filename[i]
                     out_tiff = os.path.join(out_dir, f"{fname}.tif")
                     os.makedirs(os.path.dirname(out_tiff), exist_ok=True)
                     with rasterio.open(
