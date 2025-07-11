@@ -22,6 +22,32 @@
 ![cov](https://github.com/IBM/terratorch/raw/main/assets/coverage-badge.svg)
 [![PyPI Downloads](https://img.shields.io/pypi/dm/terratorch.svg?label=PyPI%20downloads)](https://pypi.org/project/terratorch/)
 
+## Changes for Development and Embedding Generation:
+
+### Editable Installation from Local Files
+The Dockerfile has been modified to copy the package from local files and install in an editable configuration rather than installing from the public release. This takes longer on startup, as Terratorch must be installed from local files each time the container starts for edits to be reflected in those files. To disable this behavior and build a more permanent version of the Docker image from local files, swap out the bash command at the end of the Dockerfile for the copy command in the middle of the Dockerfile, and uncomment Terratorch in the pip install line.
+
+### Addition of compose.yml
+The compose.yml is the preferred way of running this workflow. A template has been provided.
+
+### Addition of Embedding Generation Task
+The Embedding Generation task has been added to the Terratorch package
+
+## Running Embedding Generation
+The embedding generation workflow relies on the terratorch predict method. Connect to the terminal of the container and activate the Terratorch virtual environment using:
+
+```source /opt/app-root/src/venv/bin/activate```
+
+Using this line from the official tutorial as an example:
+
+```terratorch predict -c burn_scars_config.yaml --predict_output_dir outputs/ --data.init_args.predict_data_root examples/ --ckpt_path Prithvi_EO_V2_300M_BurnScars.pt```
+
+e.g.
+
+```terratorch predict -c burn_scars_embedding_config.yaml --data.init_args.predict_data_root examples/```
+
+Change the output dir and ckpt path according to the local filestructure.
+
 ## Overview
 TerraTorch is a PyTorch domain library based on [PyTorch Lightning](https://lightning.ai/docs/pytorch/stable/) and the [TorchGeo](https://github.com/microsoft/torchgeo) domain library
 for geospatial data. 

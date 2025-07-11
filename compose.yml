@@ -1,0 +1,17 @@
+services:
+  notebook:
+    image: terratorch-explainability:latest
+    build: .
+    stdin_open: true  # equivalent to -i
+    tty: true         # equivalent to -t
+    volumes:
+       - /workspace/_output/terratorch-explainability/:/data/
+       - /workspace/Denys/terratorch-explainability/:/opt/app-root/src/terratorch/
+    shm_size: '2gb'
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

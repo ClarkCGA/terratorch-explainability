@@ -15,18 +15,23 @@ RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 WORKDIR /opt/app-root/src
 
-# Create venv and install terratorch
+# Don't copy - use volume mount instead
+# COPY --chown=10000:0 . /opt/app-root/src/terratorch
+
+# Create venv 
 USER 10000
 RUN python3 -m venv /opt/app-root/src/venv
 RUN chgrp 0 -R /opt/app-root/src/venv/
 RUN chmod 775 -R /opt/app-root/src/venv
-RUN . /opt/app-root/src/venv/bin/activate && pip install  --no-cache-dir --upgrade pip && pip install  --no-cache-dir terratorch
-USER root
-RUN pip cache purge
 
+# Install dependencies that don't change often
+RUN . /opt/app-root/src/venv/bin/activate && pip install --no-cache-dir --upgrade pip
+# RUN pip install /opt/app-root/src/terratorch
+
+USER root
 RUN apt-get purge -y build-essential && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
 
-
-CMD ["bash"]
+# Install terratorch in editable mode when container starts
+CMD ["bash", "-c", "cd /opt/app-root/src && . venv/bin/activate && pip install -e ./terratorch && bash"]
