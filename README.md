@@ -44,7 +44,7 @@ Using this line from the official tutorial as an example:
 
 e.g.
 
-```terratorch predict -c burn_scars_embedding_config.yaml --data.init_args.predict_data_root examples/```
+```terratorch predict -c /opt/app-root/src/terratorch/examples/confs/embedding_generation/burn_scars_embedding_config.yaml --data.init_args.predict_data_root /data/Prithvi-EO-2.0-300M-BurnScars/examples/```
 
 Change the output dir and ckpt path according to the local filestructure.
 

@@ -5,6 +5,9 @@ import logging
 from torchgeo.trainers import BaseTask
 from terratorch.registry import BACKBONE_REGISTRY
 from terratorch.models.utils import TemporalWrapper
+from terratorch.models.model import ModelOutput
+from torch import nn
+
 
 logger = logging.getLogger("terratorch")
 
@@ -25,7 +28,7 @@ class EmbeddingGeneration(BaseTask):
     ) -> None:
         """
         Args:
-            model (str): Name of ModelFactory class to be used to instantiate the model.
+            model_factory (str): Name of ModelFactory class to be used to instantiate the model.
             model_args (Dict): Arguments passed to the model factory.
             output_dir (str): Directory to save embeddings in.
         """
@@ -44,6 +47,8 @@ class EmbeddingGeneration(BaseTask):
                 concat=self.hparams.concat, 
                 n_timestamps=self.hparams.n_timestamps
             )
+        if self.hparams.model_args.necks:
+            self.neck: nn.Module = nn.Sequential(*self.hparams.model_args.necks)
         self.model.eval()
         # for k, v in self.model.named_parameters():
         #     print(k, v.shape)
@@ -56,34 +61,36 @@ class EmbeddingGeneration(BaseTask):
     def on_validation_epoch_end(self): pass
 
     def predict_step(self, batch: dict, batch_idx: int, dataloader_idx: int = 0):
-        print (batch.keys())
-        x = batch["image"]
-        filename = batch["filename"]
-        print(type(filename))
         
+        x = batch["image"]
+        other_keys = batch.keys() - {"image", "mask", "filename"}
+        filename = batch["filename"]
+        
+        rest = {k: batch[k] for k in other_keys}
+
         if self.hparams.use_temporal:
-            emb = self.model.get_embedding(x)
+            model_output = self.model.get_embedding(x, **rest)
         else:
-            emb = self.model.forward(x)[-1]
+            model_output = self.model.forward(x, **rest)
 
-        print(x.shape)
-        print(emb.shape)
+        emb = self.neck(model_output) if self.neck else model_output
 
+        # handle options from config
+        #TODO: call a function (e.g. unpatchify, for prithvi output) on outputs
+        #TODO: rather than checking type, have dict or list be an option in the config
+        # reduce if else!
+        
         # Handle torch.Tensor embedding
         if isinstance(emb, torch.Tensor):
             emb = emb.detach().cpu()
-            if len(emb.shape) == 4:
-                B, T, H, W = emb.shape
-            else:
-                B, H, W = emb.shape
-                T = 1
+            
             out_dir = os.path.join(self.hparams.output_dir, 'embeddings')
             os.makedirs(out_dir, exist_ok=True)
 
-            for i in range(B):
+            for i in range(emb[0]): # for each in batch
                 emb_fname = os.path.join(out_dir, f"{filename[i]}_emb.pt")
-                cls_fname = os.path.join(out_dir, f"{filename[i]}_cls.pt")
                 torch.save(emb[i,1:,:],emb_fname)
+                cls_fname = os.path.join(out_dir, f"{filename[i]}_cls.pt")
                 torch.save(emb[i,:1,:],cls_fname)
             return
 
