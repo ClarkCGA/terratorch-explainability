@@ -5,7 +5,7 @@ services:
     stdin_open: true  # equivalent to -i
     tty: true         # equivalent to -t
     volumes:
-       - /workspace/_output/terratorch-explainability/:/data/
+       - /workspace/_output/gfm-explainability/:/data/ 
        - /workspace/Denys/terratorch-explainability/:/opt/app-root/src/terratorch/
     shm_size: '2gb'
     deploy:

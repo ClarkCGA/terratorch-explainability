@@ -1,0 +1,146 @@
+  # lightning.pytorch==2.1.1
+seed_everything: 0
+trainer:
+  accelerator: auto
+  strategy: auto
+  devices: auto
+  num_nodes: 1
+  precision: 16-mixed
+  logger:
+    class_path: TensorBoardLogger
+    init_args:
+      save_dir: output
+      name: multimodal_prithvi_sen1floods11
+      version: test_best
+  callbacks:
+    - class_path: RichProgressBar
+    - class_path: LearningRateMonitor
+      init_args:
+        logging_interval: epoch
+    - class_path: EarlyStopping
+      init_args:
+        monitor: val/loss
+        patience: 40
+
+  max_epochs: 100
+  check_val_every_n_epoch: 1
+  log_every_n_steps: 50
+  enable_checkpointing: True
+  default_root_dir: output/multimodal_prithvi_sen1floods11/
+
+data:
+  class_path: terratorch.datamodules.GenericMultiModalDataModule
+  init_args:
+    batch_size: 16
+    num_workers: 4
+    modalities: # Define names of modalities
+      - S2 
+      - S1
+      - landsat
+      - dem
+    rgb_modality: S2 # If not provided, uses first modality
+    rgb_indices:
+      - 3
+      - 2
+      - 1
+    means:
+      S2: 
+      S1:
+      landsat:
+      dem:
+    stds:
+      S2: 
+      S1:
+      landsat:
+      dem:
+    predict_data_root:
+      S2: data/v0.40/S2
+      S1: data/v0.40/S1
+      landsat: data/v0.40/landsat
+      dem: data/v0.40/dem
+    image_grep:
+      S2: '*S2.tif' 
+      S1: '*S1.tif'
+      landsat: 'landsat.tif'
+      dem: '*dem.tif'
+    dataset_bands:
+      S2L2A:
+        - 'COASTAL_AEROSOL'
+        - 'BLUE'
+        - 'GREEN'
+        - 'RED'
+        - 'RED_EDGE_1'
+        - 'RED_EDGE_2'
+        - 'RED_EDGE_3'
+        - 'NIR_BROAD'
+        - 'NIR_NARROW'
+        - 'SWIR_1'
+        - 'SWIR_2'
+        # - 'WATER_VAPOR'
+        - 'CIRRUS'
+        - 'THEMRAL_INFRARED_1'
+      S1: 
+        - 'VV'
+        - 'VH'
+        - 'ASC_VV'
+        - 'ASC_VH'
+        - 'DSC_VV'
+        - 'DSC_VH'
+        - 'VV_VH'
+      landsat:
+        - "coastal"    # Coastal/Aerosol (Band 1)
+        - "blue"       # Blue (Band 2)
+        - "green"      # Green (Band 3)
+        - "red"        # Red (Band 4)
+        - "nir08"      # Near Infrared (NIR, Band 5)
+        - "swir16"     # Shortwave Infrared 1 (SWIR1, Band 6)
+        - "swir22"     # Shortwave Infrared 2 (SWIR2, Band 7)
+        #- "pan"        # Panchromatic (Band 8)
+        #- "cirrus"     # Cirrus (Band 9)
+        #- "tir10"      # Thermal Infrared 1 (TIR1, Band 10)
+        #- "tir11"      # Thermal Infrared 2 (TIR2, Band 11)
+      dem:
+        - 'dem'
+       
+    output_bands (dict[list], optional): Bands that should be output by the dataset as named by dataset_bands,
+        provided as a dictionary with modality keys. Can be subset of all modalities. Defaults to None.
+    concat_bands: false 
+    # Concatenate all image modalities along the band dimension into a single "image", so
+    # that it can be processed by single-modal models. Concatenate in the order of provided modalities.
+    # Works with image modalities only. Does not work with allow_missing_modalities. Defaults to False.
+    # Data roots are defined as dicts with modalities as keys
+    allow_substring_file_names: True
+
+model:
+  class_path: terratorch.tasks.SemanticSegmentationTask
+  init_args:
+    model_factory: EncoderDecoderFactory
+    model_args:
+      backbone: prithvi_eo_v2_300
+      backbone_pretrained: false
+      backbone_bands:
+        - COASTAL_AEROSOL
+        - BLUE
+        - GREEN
+        - RED
+        - RED_EDGE_1
+        - RED_EDGE_2
+        - RED_EDGE_3
+        - NIR_BROAD
+        - NIR_NARROW
+        - CIRRUS
+        - SWIR_1
+        - SWIR_2
+        - VV
+        - VH
+      decoder: FCNDecoder
+      decoder_num_convs: 4
+      decoder_channels: 256
+      num_classes: 2
+      head_dropout: 0.1
+      head_channel_list:
+        - 256
+    loss: dice
+    ignore_index: -1
+    freeze_backbone: false
+    freeze_decoder: false

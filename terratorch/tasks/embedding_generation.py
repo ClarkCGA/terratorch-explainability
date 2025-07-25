@@ -77,65 +77,20 @@ class EmbeddingGeneration(BaseTask):
 
         # handle options from config
         #TODO: call a function (e.g. unpatchify, for prithvi output) on outputs
-        #TODO: rather than checking type, have dict or list be an option in the config
-        # reduce if else!
-        
+         
         # Handle torch.Tensor embedding
         if isinstance(emb, torch.Tensor):
-            emb = emb.detach().cpu()
+            emb['image'] = emb
+
+        for modality, emb_mod in emb.items():
+            emb_mod = emb_mod.detach().cpu()
             
-            out_dir = os.path.join(self.hparams.output_dir, 'embeddings')
+            out_dir = os.path.join(self.hparams.output_dir, modality)
             os.makedirs(out_dir, exist_ok=True)
 
-            for i in range(emb[0]): # for each in batch
-                emb_fname = os.path.join(out_dir, f"{filename[i]}_emb.pt")
-                torch.save(emb[i,1:,:],emb_fname)
+            for i in range(emb_mod[0]): # for each in batch
+                emb_mod_fname = os.path.join(out_dir, f"{filename[i]}_embedding.pt")
+                torch.save(emb_mod[i,1:,:],emb_mod_fname)
                 cls_fname = os.path.join(out_dir, f"{filename[i]}_cls.pt")
-                torch.save(emb[i,:1,:],cls_fname)
+                torch.save(emb_mod[i,:1,:],cls_fname)
             return
-
-            for i in range(B):
-                for t in range(T):
-                    arr = emb[i, t].numpy()
-                    fname = filename[i]
-                    out_tiff = os.path.join(out_dir, f"{fname}.tif")
-                    os.makedirs(os.path.dirname(out_tiff), exist_ok=True)
-                    with rasterio.open(
-                        out_tiff,
-                        "w",
-                        driver="GTiff",
-                        height=H,
-                        width=W,
-                        count=1,
-                        dtype=arr.dtype,
-                    ) as dst:
-                        dst.write(arr, 1)
-        
-
-        # Handle dict embedding (multimodal data)
-        elif isinstance(emb, dict):
-            for modality, emb_mod in emb.items():
-                emb_mod = emb_mod.detach().cpu()
-                B, T, H, W = emb_mod.shape
-                out_dir = os.path.join(self.hparams.output_dir, modality)
-                os.makedirs(out_dir, exist_ok=True)
-
-                for i in range(B):
-                    for t in range(T):
-                        arr = emb_mod[i, t].numpy()
-                        fname = file_names[i][t]
-                        out_tiff = os.path.join(out_dir, f"{fname}.tif")
-                        os.makedirs(os.path.dirname(out_tiff), exist_ok=True)
-                        with rasterio.open(
-                            out_tiff,
-                            "w",
-                            driver="GTiff",
-                            height=H,
-                            width=W,
-                            count=1,
-                            dtype=arr.dtype,
-                        ) as dst:
-                            dst.write(arr, 1)
-            print(f"Saved {out_tiff}")
-        else:
-            raise ValueError("Embedding must be a torch.Tensor or dict of tensors.")
