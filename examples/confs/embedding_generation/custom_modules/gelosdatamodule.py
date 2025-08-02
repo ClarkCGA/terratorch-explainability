@@ -1,4 +1,3 @@
-from collections.abc import Sequence
 from typing import Any
 
 import albumentations as A
@@ -7,10 +6,10 @@ from torch.utils.data import DataLoader
 from terratorch.datamodules.generic_multimodal_data_module import MultimodalNormalize, wrap_in_compose_is_list
 from terratorch.datamodules.generic_pixel_wise_data_module import Normalize
 
-from terratorch.datasets import GELOSDataset
+from terratorch.datasets import GELOSDataSet 
 from torchgeo.datamodules import GeoDataModule
-from kournia.augmentation import AugementationSequential
-
+from kournia.augmentation import AugmentationSequential 
+import pdb
 MEANS = {
     "S2": { 
         "COASTAL_AEROSOL": 0.0,
@@ -134,3 +133,25 @@ class GELOSDataModule(GeoDataModule):
             self.aug = Normalize(self.means[self.modalities[0]], self.stds[self.modalities[0]]) if aug is None else aug
         else:
             MultimodalNormalize(self.means, self.stds) if aug is None else aug
+        pdb.set_trace()
+    def setup(self) -> None:
+        """
+        Set up GELOS dataset
+        """ 
+        self.dataset = self.dataset_class(
+            data_root=self.data_root,
+            bands=self.bands,
+            transform=self.transform,
+        )
+
+    def _dataloader_factory(self):
+        dataset = self.dataset 
+        batch_size = self.batch_size
+        return DataLoader(
+            dataset=dataset,
+            batch_size=batch_size,
+            shuffle=False
+            num_workers=self.num_workers,
+            collate_fn=self.collate_fn,
+            drop_last=self.drop_last,
+        )
