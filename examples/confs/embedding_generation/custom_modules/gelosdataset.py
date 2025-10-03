@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import List
 from torchgeo.datasets import GeoDataSet
-
+import geopandas as gpd
 class GELOSDataSet(GeoDataSet):
     """
     Dataset intended for embedding extraction and exploration.
@@ -97,7 +97,7 @@ class GELOSDataSet(GeoDataSet):
             for sens in self.bands.keys()
         }
         
-        self.df = pd.read_csv(self.data_root / self.metadata_filename)
+        self.df = gpd.read_file(self.data_root / self.metadata_filename)
 
         # Adjust transforms based on the number of sensors
         if len(self.bands.keys()) == 1:
@@ -112,27 +112,55 @@ class GELOSDataSet(GeoDataSet):
             self.transform = MultimodalTransforms(transform, shared=False)
 
     def __len__(self) -> int:
-      return len(self.df)
+        return len(self.df)
     
     def __getitem__(self, index: int) -> dict:
-      sample_row = self.df.iloc[index]
-      
-      output = {}
-      
-      for sensor in self.bands.keys():
-          sensor_filepaths = sample_row[sensor]
-          image = self._load_sensor_images(sensor_filepaths)
-          output[sensor] = image.astype(np.float32)
+        sample_row = self.df.iloc[index]
 
-      if len(output.keys()) == 1:
+        output = {}
+
+        for sensor in self.bands.keys():
+            sensor_filepaths = sample_row[sensor]
+            image = self._load_sensor_images(sensor_filepaths)
+            output[sensor] = image.astype(np.float32)
+
+        if len(output.keys()) == 1:
             # Rename the single sensor key to "image"
             sensor = list(output.keys())[0]
             output["image"] = output.pop(sensor)
-        
-      return output
-          
+        if self.transform:
+          output = self.transform(output)
+
+        if self.concat_bands:
+            # Concatenate bands of all image modalities
+            data = [output.pop(m) for m in self.image_modalities if m in output]
+            output["image"] = torch.cat(data, dim=1 if self.data_with_sample_dim else 0)
+        else:
+            # Tasks expect data to be stored in "image", moving modalities to image dict
+            output["image"] = {m: output.pop(m) for m in self.modalities if m in output}
+
+        output["filename"] = self.samples[index]
+
+        return output
+
+    def _load_file(self, path, nan_replace: int | float | None = None) -> np.Array
+
+        data = rioxarray.open_rasterio(path, masked=True).to_numpy()
+        if nan_replace is not None:
+            data = np.nan_to_num(data, nan=nan_replace)
+
+        return data
+
+    def _load_sensor_images(self, sensor_filepaths: List(int)) -> np.Array
+
+        sensor_images = [self._load_file(sensor_filepaths, self.nan_replace) for path in sensor_filepaths]
+        sensor_image = np.stack(sensor_images, dim=0)
+
+        return sensor_image
+
     def _process_metadata_df(self):
         for modality in self.bands.keys():
+            
             # for each modality, construct file paths
             # if the modality has multiple dates, construct them from the dates column
             # otherwise, for single time step variables, construct from chip id

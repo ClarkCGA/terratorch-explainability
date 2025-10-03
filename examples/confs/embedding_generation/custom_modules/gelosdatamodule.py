@@ -1,4 +1,5 @@
 from typing import Any
+from pathlib import Path
 
 import albumentations as A
 from torch.utils.data import DataLoader
@@ -101,10 +102,10 @@ class GELOSDataModule(GeoDataModule):
             batch_size: int,
             num_workers: int,
             data_root: str | Path,
-            bands: dict[str] = GELOS.all_band_names,
+            bands: dict[str] = GELOSDataSet.all_band_names,
             transform: A.Compose | None | list[A.BasicTransform] = None, 
             aug: AugmentationSequential = None,
-            metadata_filename: str = "chip_tracker.csv",
+            metadata_filename: str = "cleaned_df.geojson",
             **kwargs: Any,
     ) -> None:
         """
@@ -150,7 +151,7 @@ class GELOSDataModule(GeoDataModule):
         return DataLoader(
             dataset=dataset,
             batch_size=batch_size,
-            shuffle=False
+            shuffle=False,
             num_workers=self.num_workers,
             collate_fn=self.collate_fn,
             drop_last=self.drop_last,
